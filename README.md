@@ -54,7 +54,7 @@ aws_profile=myproject1
 ```
 # Examples of use
 ```
-$ awpt create myproject
+$ awpt create myproject1
 Create new project: myproject1
 Create directory: /home/dima/.config/awpt/project/myproject1
 Create directory: /home/dima/.ssh/myproject1
