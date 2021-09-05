@@ -224,8 +224,8 @@ ShowHelp() {
   echo "  lp     : list projects"
   echo "  sync   : sync EC2 id and Names"
   echo "  ls     : list EC2 instances"
-  echo "  ssm {hostname} : connect to host by SSM"
-  echo "  {hostname}     : connect to host by SSH via SSM Proxy"
+  echo "  {hostname}     : connect to host by SSM"
+  echo "  ssh {hostname} : connect to host by SSH via SSM Proxy"
   exit 0
 }
 #
