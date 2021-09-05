@@ -13,6 +13,8 @@ BETA 1 - Amazon Linux 1,2: by system account ec2-user
 Allow SSM connection 
 https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-getting-started-enable-ssh-connections.html#ssh-connections-enable
 
+EC2 should have tag "Name".
+
 # Installation
 Clone repo
 ```
