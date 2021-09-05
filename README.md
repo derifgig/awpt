@@ -1,5 +1,4 @@
 # AWPT
-BETA 1
 Tool for AWS EC2 connect, via SSM 
 # Supported client OS
 Linux: Ubuntu, ArchLinux/Manjaro
@@ -55,12 +54,12 @@ aws_profile=myproject1
 ```
 # Examples of use
 ```
-# awpt create myproject
+$ awpt create myproject
 Create new project: myproject1
 Create directory: /home/dima/.config/awpt/project/myproject1
 Create directory: /home/dima/.ssh/myproject1
 
-# Manyally: add AWS config and credentials 
+##### Manually: add AWS config and credentials 
 
 $ awpt sp myproject1
 Set Project: myproject1
