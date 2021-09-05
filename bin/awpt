@@ -1,0 +1,372 @@
+#!/bin/bash
+#
+version="0.1beta"
+#
+Logger() {
+if [ -n "$Log" ]; then
+  logger -p $logger_priority "${app}:$Project pid:$PID $@"
+fi
+}
+#
+log() {
+echo $@
+logger_priority='user.info'
+Logger $@
+}
+#
+warning() {
+echo WARNING: $@
+logger_priority='user.warning'
+Logger $@
+}
+#
+error() {
+echo ERROR: $@
+logger_priority='user.err'
+Logger $@
+exit 1
+}
+#
+rmfile() {
+if [ -f $1 ]; then
+  log "Remove file:" $(ls -s -h $1)
+  rm -f $1
+else
+  warning "Removing failed. File not exist: " $1
+fi
+}
+#
+showfile() {
+if [ -f $1 ]; then
+    log "File :" $(ls -s -h $1)
+else
+    warning "File not exist: " $1
+fi
+}
+#
+CreateDir() {
+local dd="$1"
+if [ -z "$dd" ]; then
+  error "NO parameters  in func: CreateDir"
+fi
+#
+if [ ! -d $dd ]; then
+  log "Create directory: $dd"
+  mkdir -p $dd
+fi
+}
+#
+ListProjects() {
+declare -A projects
+echo Projects directory: $ProjectsDir
+#
+list=$(find $ProjectsDir -mindepth 1 -maxdepth 1 -type d)
+#
+local cc=0
+local pp
+for i in ${list}; do
+  cc=$[$cc+1]
+  projects[$cc]=${i##*/}
+done
+#
+if [ $cc -eq 0 ]; then
+ error "No one projects exists"
+ exit 1
+fi
+#
+echo -e "Available projects: \n--------------"
+for key in "${!projects[@]}"; do
+  echo "$key: ${projects[$key]}"
+done;
+#
+exit 0
+}
+#
+#
+SetProject() {
+local param=$1
+if [ -z "$param" ]; then
+  error "SetProject failed: no parameter value"
+fi
+#
+log "Set Project: $param"
+#
+export Project=$param
+echo ${Project} > ${CurrentProjectFile}
+#
+SetProjectVars
+exit 0
+}
+#
+GetCurrentProject() {
+if [ ! -f ${CurrentProjectFile} ]; then
+  error "Current project file does not exist: ${CurrentProjectFile}"
+  return 1
+else
+  local pp=$(cat ${CurrentProjectFile} 2>/dev/null)
+  if [ -z $pp ]; then
+    error "No value in current project file: ${CurrentProjectFile}"
+    return 1
+  fi
+  Project=$pp
+fi
+}
+#
+CheckProjectVar() {
+if [ -z "$Project" ]; then
+  error "Variable Project is NOT defined"
+fi
+}
+#
+SetGlobalVars() {
+app='awpt'
+# Process ID
+PID=$(tr </dev/urandom -dc A-Z0-9 | head -c${1:-6})
+TmpPath='/tmp'
+BasePath="/opt/${app}"
+CreateDir "$HOME/.config/${app}/project"
+CurrentProjectFile="$HOME/.config/${app}/currentproject"
+ProjectsDir="$HOME/.config/${app}/project"
+}
+#
+SetProjectVars() {
+CheckProjectVar
+#
+Log="${Project}"
+ProjectPath="${ProjectsDir}/${Project}"
+ProjectConfig="${ProjectPath}/config"
+#
+if [ ! -d ${ProjectPath} ]; then
+  CreateDir ${ProjectPath}
+fi
+#
+# AWS vars
+awsEC2list="${ProjectPath}/ec2.list"
+#
+ConfigGet aws_profile
+export AWS_PROFILE=$ConfigGetResult
+}
+#
+CreateProject() {
+local project="$1"
+if [ -z "$project" ]; then
+  error "NO parameters in func: CreateProject"
+fi
+#
+pp="${ProjectsDir}/${project}"
+if [ ! -d $pp ]; then
+  echo "Create new project: ${project}"
+  CreateDir $pp
+  if [ -d $pp ]; then
+    echo "aws_profile=${project}" > $pp/config
+    echo "# ssh keys should be placed in ~/.ssh directory" >> $pp/config
+    echo "default_ssh_key=${project}/default.key" >> $pp/config
+    #
+    if [ -d $HOME/.ssh/${project} ];then
+      echo "Directory for ssh keys already exists: $HOME/.ssh/${project}"
+    else
+      CreateDir "$HOME/.ssh/${project}"
+    fi
+    #
+  fi
+else
+  error "Project directory already exists: $pp"
+fi
+exit 0
+}
+#
+ConfigGet() {
+local param=$1
+if [[ -z "${ProjectConfig}" || ! -f "${ProjectConfig}" ]]; then
+  error "Config file NOT defined or does not exist. File: [${ProjectConfig}]"
+fi
+ConfigGetResult=$(grep "^${param}" ${ProjectConfig} 2>/dev/null | awk -F= '{print $2}'| head -1 )
+}
+#
+GetInstance() {
+GetCurrentProject
+SetProjectVars
+local name=$1
+if [ -z "${name}" ]; then
+  error "function: GetInstance, parameter is EMPTY"
+fi
+local result=$(grep "^${name}" ${awsEC2list} 2>/dev/null | awk '{print $2}'| head -1 )
+if [ -z "$result" ]; then
+  error "Instance [$name] not found in project [$Project]"
+fi
+GetInstanceResult=$result
+}
+#
+GetSshKeyForInstance() {
+GetCurrentProject
+SetProjectVars
+local name=$1
+if [ -z "${name}" ]; then
+  error "function: GetSshKeyForInstance, parameter is EMPTY"
+fi
+local result=$(grep ^${name} ${awsEC2list} 2>/dev/null | awk '{print $3}'| head -1 )
+if [ -z "$result" ]; then
+  error "Instance [$name] not found in project [$Project]"
+fi
+GetSshKeyForInstance=$result
+}
+#
+ShowHelp() {
+  echo "AWS Project Tool"
+  echo "Version: $version"
+  echo ""
+  echo "USAGE: ${app} [COMMAND|HOSTNAME]"
+  echo ""
+  echo "COMMANDS:"
+  echo "  info   : show current project"
+  echo "  sp     : set project"
+  echo "  create : create new project"
+  echo "  lp     : list projects"
+  echo "  sync   : sync EC2 id and Names"
+  echo "  ls     : list EC2 instances"
+  echo "  ssm {hostname} : connect to host by SSM"
+  echo "  {hostname}     : connect to host by SSH via SSM Proxy"
+  exit 0
+}
+#
+Sync() {
+  log "Reading AWS EC2 instances. Please wait..."
+  GetCurrentProject
+  SetProjectVars
+  local jsonfile=$(mktemp)
+  aws ec2 describe-instances --filter Name=tag-key,Values=Name --query 'Reservations[*].Instances[*].{InstanceId:InstanceId,sshkey:KeyName,Name:Tags[?Key==`Name`]|[0].Value}' --output json > ${jsonfile}
+  # received error
+  local exitcode="$?"
+  if [ "${exitcode}" -ne "0" ]; then
+    error "Exit code not zero: ${exitcode}"
+    echo "------ OUTPUT -----------"
+    cat ${jsonfile}
+    rm -f ${jsonfile}
+  fi
+  #
+  cat ${jsonfile} | jq -r '.[] | .[] | "\(.Name) \(.InstanceId) \(.sshkey)"' > ${awsEC2list}
+  rm -f ${jsonfile}
+  #
+  log "EC2 count: " $(wc -l ${awsEC2list})
+  exit 0
+}
+#
+ListInstances() {
+  GetCurrentProject
+  SetProjectVars
+  if [ -f ${awsEC2list} ]; then
+    local ll=$(wc -l ${awsEC2list} | awk '{print $1}' )
+    if [ "$ll" -eq "0" ]; then
+      error "File with EC2 list (${awsEC2list}) is empty"
+    else
+      sort ${awsEC2list}
+    fi
+  else
+    error "EC2 list file (${awsEC2list}) does not exists. Execute command first: ${app} sync"
+  fi
+  exit 0
+}
+#
+Info() {
+  echo "${app^^} version: $version"
+  GetCurrentProject
+  SetProjectVars
+  if [ -z $Project ]; then
+    error "Current project: not selected"
+  else
+    echo "Current Project: $Project"
+    echo -e "Config file: $ProjectConfig\n---------"
+    cat $ProjectConfig | grep -v ^#
+    echo "-----------"
+    if [ -f ${awsEC2list} ]; then
+      local ll=$(wc -l ${awsEC2list} | awk '{print $1}' )
+      echo "EC2 count: $ll"
+    else
+      warning "EC2 list file (${awsEC2list}) does not exists. Execute command first: awpt sync"
+    fi
+  fi
+}
+GetSshKeyForInstance() {
+  GetCurrentProject
+  SetProjectVars
+  local name=$1
+  if [ -z "${name}" ]; then
+    error "function: GetSshKeyForInstance, parameter is EMPTY"
+  fi
+  local result=$(grep ^${name} ${awsEC2list} 2>/dev/null | awk '{print $3}'| head -1 )
+  if [ -z "$result" ]; then
+    error "Instance [$name] not found in project [$Project]"
+  fi
+  GetSshKeyForInstance=$result
+}
+#
+ConnectSSH() {
+  if [ -z "$1" ]; then
+    error "No hostname as parameter. Check instance list: ${app} ls"
+  fi
+  GetInstance $1
+  instance=$GetInstanceResult
+  #
+  GetSshKeyForInstance $1
+  ssh_key_ec2=$GetSshKeyForInstance
+  #
+  local ss="$HOME/.ssh/${Project}/${ssh_key_ec2}"
+  if [ -f $ss ]; then
+    ssh -i $ss ec2-user@${instance}
+  else
+    error "SSH key not found: $ss"
+  fi
+}
+#
+ConnectSSM() {
+if [ -z "$1" ]; then
+  error "No hostname as parameter. Check instance list: ${app} ls"
+fi
+GetInstance $1
+instance=$GetInstanceResult
+#
+aws ssm start-session --target ${instance}
+}
+# === MAIN PROCESS ===========================
+SetGlobalVars
+if [ -z "$1" ]; then
+  Info
+fi
+# Parsing parameters
+while [ -n "$1" ]; do
+  case "$1" in
+  sync)
+    Sync
+    ;;
+  ls)
+    ListInstances
+    ;;
+  lp)
+    ListProjects
+    ;;
+  info)
+    Info
+    ;;
+  create)
+    CreateProject $2
+    ;;
+  sp)
+    SetProject $2
+    ;;
+  grep)
+    Grep $2
+    ;;
+  ? | -help | --help | -h | -H)
+    ShowHelp
+    ;;
+  ssh)
+    ConnectSSH $2
+    shift
+    ;;
+  *)
+    ConnectSSM $1
+    ;;
+  esac
+  shift
+done
+
