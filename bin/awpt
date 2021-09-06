@@ -234,7 +234,7 @@ Sync() {
   GetCurrentProject
   SetProjectVars
   local jsonfile=$(mktemp)
-  aws ec2 describe-instances --filter Name=tag-key,Values=Name --query 'Reservations[*].Instances[*].{InstanceId:InstanceId,sshkey:KeyName,Name:Tags[?Key==`Name`]|[0].Value}' --output json > ${jsonfile}
+  aws ec2 describe-instances --filter Name=tag-key,Values=Name --query 'Reservations[*].Instances[*].{InstanceId:InstanceId,PrivateIp:PrivateIpAddress,sshkey:KeyName,Name:Tags[?Key==`Name`]|[0].Value}' --output json > ${jsonfile}
   # received error
   local exitcode="$?"
   if [ "${exitcode}" -ne "0" ]; then
@@ -244,7 +244,7 @@ Sync() {
     rm -f ${jsonfile}
   fi
   #
-  cat ${jsonfile} | jq -r '.[] | .[] | "\(.Name) \(.InstanceId) \(.sshkey)"' > ${awsEC2list}
+  cat ${jsonfile} | jq -r '.[] | .[] | "\(.Name) \(.InstanceId) \(.sshkey) \(.PrivateIp)"' > ${awsEC2list}
   rm -f ${jsonfile}
   #
   log "EC2 count: " $(wc -l ${awsEC2list})
