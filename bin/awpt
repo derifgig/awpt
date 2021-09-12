@@ -190,7 +190,7 @@ local name=$1
 if [ -z "${name}" ]; then
   error "function: GetInstance, parameter is EMPTY"
 fi
-local result=$(grep "^${name}\$" ${awsEC2list} 2>/dev/null | awk '{print $2}'| head -1 )
+local result=$(grep -w "^${name}" ${awsEC2list} 2>/dev/null | awk '{print $2}'| head -1 )
 if [ -z "$result" ]; then
   error "Instance [$name] not found in project [$Project]"
 fi
