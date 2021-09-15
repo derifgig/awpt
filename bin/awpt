@@ -122,6 +122,7 @@ SetGlobalVars() {
 app='awpt'
 # Generate random process ID
 PID=$(shuf -ez -n6  {A..Z} {0..9})
+echo "PID: $PID"
 CreateDir "$HOME/.config/${app}/project"
 CurrentProjectFile="$HOME/.config/${app}/currentproject"
 ProjectsDir="$HOME/.config/${app}/project"
@@ -130,7 +131,7 @@ ProjectsDir="$HOME/.config/${app}/project"
 CheckEnvironment() {
 local error_list=""
 for i in aws jq; do
-  if test -z $(which $i); then error_list+=" $i"; fi
+  if test -z $(which $i 2>/dev/null); then error_list+=" $i"; fi
 done
 if test -z error_list; then
   error "Required binary files not found: $error_list"
