@@ -273,7 +273,7 @@ if [ -f ${awsEC2list} ]; then
     sort ${awsEC2list}
   fi
 else
-  error "EC2 list file (${awsEC2list}) does not exists. Execute command first: ${app} sync"
+  error "EC2 list file (${awsEC2list}) does not exists. Run command: ${app} sync"
 fi
 exit 0
 }
@@ -293,7 +293,7 @@ else
     local ll=$(wc -l ${awsEC2list} | awk '{print $1}' )
     echo "EC2 count: $ll"
   else
-    warning "EC2 list file (${awsEC2list}) does not exists. Execute command first: awpt sync"
+    warning "EC2 list file (${awsEC2list}) does not exists. Run command: awpt sync"
   fi
 fi
 }
