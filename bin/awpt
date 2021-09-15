@@ -129,7 +129,7 @@ ProjectsDir="$HOME/.config/${app}/project"
 #
 CheckEnvironment() {
 local error_list=""
-for i in aws jq; do
+for i in "aws jq"; do
   if $(which $i 2>/dev/null); then error_list+=" $i"; fi
 done
 if test ! -z "$error_list"; then
