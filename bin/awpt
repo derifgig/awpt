@@ -1,7 +1,5 @@
 #!/bin/bash
 #
-# https://github.com/derifgig/awpt/
-#
 version="1.2"
 #
 Logger() {
@@ -223,6 +221,8 @@ GetSshKeyForInstance=$result
 #
 ShowHelp() {
 cat << EOF
+AWS Project Tool https://github.com/derifgig/awpt/
+
 Version: $version
 
 USAGE: ${app} [COMMAND|HOSTNAME]
