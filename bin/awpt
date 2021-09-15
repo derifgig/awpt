@@ -133,7 +133,7 @@ local error_list=""
 for i in aws jq; do
   if test -z $(which $i 2>/dev/null); then error_list+=" $i"; fi
 done
-if test -z error_list; then
+if test ! -z "$error_list"; then
   error "Required binary files not found: $error_list"
 fi
 }
