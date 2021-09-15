@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-version="0.1beta"
+version="1.1"
 #
 Logger() {
 if [ -n "$Log" ]; then
@@ -120,13 +120,21 @@ fi
 #
 SetGlobalVars() {
 app='awpt'
-# Process ID
-PID=$(tr </dev/urandom -dc A-Z0-9 | head -c${1:-6})
-TmpPath='/tmp'
-BasePath="/opt/${app}"
+# Generate random process ID
+PID=$(shuf -ez -n6  {A..Z} {0..9})
 CreateDir "$HOME/.config/${app}/project"
 CurrentProjectFile="$HOME/.config/${app}/currentproject"
 ProjectsDir="$HOME/.config/${app}/project"
+}
+#
+CheckEnvironment() {
+local error_list=""
+for i in aws jq; do
+  if test -z $(which $i); then error_list+=" $i"; fi
+done
+if test -z error_list; then
+  error "Required binary files not found: $error_list"
+fi
 }
 #
 SetProjectVars() {
@@ -327,8 +335,13 @@ instance=$GetInstanceResult
 #
 aws ssm start-session --target ${instance}
 }
+#
 # === MAIN PROCESS ===========================
+#
+CheckEnvironment
+#
 SetGlobalVars
+#
 if [ -z "$1" ]; then
   Info
 fi

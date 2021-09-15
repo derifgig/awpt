@@ -34,8 +34,11 @@ Host i-* mi-*
     ProxyCommand sh -c "aws ssm start-session --target %h --document-name AWS-StartSSHSession --parameters 'portNumber=%p'"    
 ```
 Install AWS tools
-1. https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2-linux.html
-2. https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html#install-plugin-linux
+* https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2-linux.html
+* https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html#install-plugin-linux
+
+Install packages
+* jq
 
 ## AWS profiles configuration
 By defaults project use AWS profile with the same name as project.
