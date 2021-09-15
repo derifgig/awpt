@@ -221,11 +221,12 @@ GetSshKeyForInstance=$result
 #
 ShowHelp() {
 cat << EOF
+
 AWS Project Tool https://github.com/derifgig/awpt/
 
 Version: $version
 
-USAGE: ${app} [COMMAND|HOSTNAME]
+USAGE: ${app} <command|hostname> [{parameter}]
 
 COMMANDS:
   info   : show current project
@@ -236,6 +237,7 @@ COMMANDS:
   ls     : list EC2 instances
   {hostname}     : connect to host by SSM
   ssh {hostname} : connect to host by SSH via SSM Proxy
+
 EOF
 exit 0
 }
