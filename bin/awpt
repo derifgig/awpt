@@ -1,6 +1,8 @@
 #!/bin/bash
 #
-version="1.1"
+# https://github.com/derifgig/awpt/
+#
+version="1.2"
 #
 Logger() {
 if [ -n "$Log" ]; then
