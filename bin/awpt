@@ -130,7 +130,7 @@ ProjectsDir="$HOME/.config/${app}/project"
 CheckEnvironment() {
 local error_list=""
 for i in aws jq; do
-  if which $i >/dev/null 2>&1; then error_list+=" $i"; fi
+  if which $i >/dev/null 2>/dev/null; then error_list+=" $i"; fi
 done
 if test ! -z "$error_list"; then
   error "Required binary files not found: $error_list"
