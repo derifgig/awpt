@@ -121,8 +121,7 @@ fi
 SetGlobalVars() {
 app='awpt'
 # Generate random process ID
-PID=$(shuf -ez -n6  {A..Z} {0..9})
-echo "PID: $PID"
+PID=$(shuf -ez -n6  {A..Z} {0..9} | tr -d '\0')
 CreateDir "$HOME/.config/${app}/project"
 CurrentProjectFile="$HOME/.config/${app}/currentproject"
 ProjectsDir="$HOME/.config/${app}/project"
