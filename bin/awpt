@@ -222,7 +222,7 @@ GetInstance() {
       result=$(grep ${ec2_name} ${awsEC2list} 2>/dev/null | awk '{print $1}')
       GetInstanceResult=$result
     else
-      warning "Any EC2 no found by pattern \"$name\" not found in project: $Project"
+      warning "No one EC2 found by pattern \"$name\" in project: $Project"
       ListInstancesByPattern ${name}
       error "Instance not identified"
     fi
