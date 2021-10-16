@@ -219,7 +219,7 @@ GetInstance() {
     if [ ${cc} -eq 1 ]; then
       local ec2_name=$(grep -w ${result} ${awsEC2list} 2>/dev/null | awk '{print $1}')
       log "Found instance: $ec2_name"
-      result=$(grep -i "${name}" ${awsEC2list} 2>/dev/null | awk '{print $2}')
+      result=$(grep -i ${ec2_name} ${awsEC2list} 2>/dev/null | awk '{print $2}')
       GetInstanceResult=$result
     else
       warning "Instance [$name] not found in project [$Project]"
