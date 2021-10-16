@@ -15,13 +15,13 @@ log() {
 }
 #
 warning() {
-  echo WARNING: $@
+  echo WARNING $@
   logger_priority='user.warning'
   Logger $@
 }
 #
 error() {
-  echo ERROR: $@
+  echo ERROR $@
   logger_priority='user.err'
   Logger $@
   exit 1
@@ -186,7 +186,7 @@ CreateProject() {
 ConfigGet() {
   local param=$1
   if [[ -z "${ProjectConfig}" || ! -f "${ProjectConfig}" ]]; then
-    error "Config file NOT defined or does not exist. File: [${ProjectConfig}]"
+    error "Config file NOT defined or does not exist. File: ${ProjectConfig}"
   fi
   ConfigGetResult=$(grep "^${param}" ${ProjectConfig} 2>/dev/null | awk -F= '{print $2}' | head -1)
 }
@@ -199,7 +199,7 @@ ListInstancesByPattern() {
   #
   if grep -q "${pattern}" ${awsEC2list} 2>/dev/null; then
     echo -e "\nPerhaps you means:"
-    grep "${pattern}" ${awsEC2list} 2>/dev/null | awk '{print $1,$4}'
+    grep -i "${pattern}" ${awsEC2list} 2>/dev/null | awk '{print $2,$3}' | sort
     echo ""
   fi
 }
@@ -211,20 +211,20 @@ GetInstance() {
   if [ -z "${name}" ]; then
     error "function: GetInstance, parameter is EMPTY"
   fi
-  local result=$(grep -w "^${name}" ${awsEC2list} 2>/dev/null | awk '{print $2}' | head -1)
+  local result=$(grep -w "^${name}" ${awsEC2list} 2>/dev/null | awk '{print $1}' | head -1)
   if [ -z "$result" ]; then
     # attempt to find  one instance by pattern
-    cc=$(grep -ci "${name}" ${awsEC2list} 2>/dev/null)
+    cc=$(grep -ci -- "${name}" ${awsEC2list} 2>/dev/null)
     # if founded only one host
     if [ ${cc} -eq 1 ]; then
-      local ec2_name=$(grep -w ${result} ${awsEC2list} 2>/dev/null | awk '{print $1}')
+      local ec2_name=$(grep -i -- ${name} ${awsEC2list} 2>/dev/null | awk '{print $2}')
       log "Found instance: $ec2_name"
-      result=$(grep -i ${ec2_name} ${awsEC2list} 2>/dev/null | awk '{print $2}')
+      result=$(grep ${ec2_name} ${awsEC2list} 2>/dev/null | awk '{print $1}')
       GetInstanceResult=$result
     else
-      warning "Instance [$name] not found in project [$Project]"
+      warning "Any EC2 no found by pattern \"$name\" not found in project: $Project"
       ListInstancesByPattern ${name}
-      error "Instance not found"
+      error "Instance not identified"
     fi
   fi
   GetInstanceResult=$result
@@ -233,13 +233,13 @@ GetInstance() {
 GetSshKeyForInstance() {
   GetCurrentProject
   SetProjectVars
-  local name=$1
-  if [ -z "${name}" ]; then
+  local ec2_id=$1
+  if [ -z "${ec2_id}" ]; then
     error "function: GetSshKeyForInstance, parameter is EMPTY"
   fi
-  local result=$(grep ^${name} ${awsEC2list} 2>/dev/null | awk '{print $3}' | head -1)
+  local result=$(grep ^${ec2_id} ${awsEC2list} 2>/dev/null | awk '{print $4}' | head -1)
   if [ -z "$result" ]; then
-    error "Instance [$name] not found in project [$Project]"
+    error "Ssh key for instance \"$ec2_id\" not found in project: $Project"
   fi
   GetSshKeyForInstance=$result
 }
@@ -271,7 +271,8 @@ Sync() {
   log "Reading AWS EC2 instances. Please wait..."
   GetCurrentProject
   SetProjectVars
-  local jsonfile=$(mktemp)
+  local jsonfile
+  jsonfile=$(mktemp)
   aws ec2 describe-instances --filter Name=tag-key,Values=Name --query 'Reservations[*].Instances[*].{InstanceId:InstanceId,PrivateIp:PrivateIpAddress,sshkey:KeyName,Name:Tags[?Key==`Name`]|[0].Value}' --output json >${jsonfile}
   # received error
   local exitcode="$?"
@@ -282,10 +283,10 @@ Sync() {
     rm -f ${jsonfile}
   fi
   #
-  cat ${jsonfile} | jq -r '.[] | .[] | "\(.Name) \(.InstanceId) \(.sshkey) \(.PrivateIp)"' >${awsEC2list}
+  cat ${jsonfile} | jq -r '.[] | .[] | "\(.InstanceId) \(.Name) \(.PrivateIp) \(.sshkey)"' >${awsEC2list}
   rm -f ${jsonfile}
   #
-  log "EC2 count: " $(wc -l ${awsEC2list})
+  log "EC2 count: $(wc -l ${awsEC2list})"
   exit 0
 }
 #
@@ -325,26 +326,13 @@ Info() {
   fi
 }
 #
-GetSshKeyForInstance() {
-  GetCurrentProject
-  SetProjectVars
-  local name=$1
-  if [ -z "${name}" ]; then
-    error "function: GetSshKeyForInstance, parameter is EMPTY"
-  fi
-  local result=$(grep ^${name} ${awsEC2list} 2>/dev/null | awk '{print $3}' | head -1)
-  if [ -z "$result" ]; then
-    error "Instance [$name] not found in project [$Project]"
-  fi
-  GetSshKeyForInstance=$result
-}
-#
 ConnectSSH() {
+  local instance
   if [ -z "$1" ]; then
     error "No hostname as parameter. Check instance list: ${app} ls"
   fi
   GetInstance $1
-  local instance=$GetInstanceResult
+  instance=$GetInstanceResult
   #
   GetSshKeyForInstance $instance
   ssh_key_ec2=$GetSshKeyForInstance
