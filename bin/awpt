@@ -191,16 +191,40 @@ fi
 ConfigGetResult=$(grep "^${param}" ${ProjectConfig} 2>/dev/null | awk -F= '{print $2}'| head -1 )
 }
 #
+ListInstancesByPattern() {
+local pattern=$1
+if [ -z "${pattern}" ]; then
+  return
+fi
+#
+if grep -q "${pattern}" ${awsEC2list} 2>/dev/null ; then
+  echo "Perhaps you means"
+  grep "${pattern}" ${awsEC2list} 2>/dev/null
+  echo ""
+fi
+}
+#
 GetInstance() {
 GetCurrentProject
 SetProjectVars
 local name=$1
+local
 if [ -z "${name}" ]; then
   error "function: GetInstance, parameter is EMPTY"
 fi
 local result=$(grep -w "^${name}" ${awsEC2list} 2>/dev/null | awk '{print $2}'| head -1 )
 if [ -z "$result" ]; then
-  error "Instance [$name] not found in project [$Project]"
+  # attempt to find  one instance by pattern
+  cc=$(grep -ci "${name}" ${awsEC2list} 2>/dev/null )
+  # if founded only one host
+  if [ ${cc} -eq 1 ]; then
+    result=$(grep -i "${name}" ${awsEC2list} 2>/dev/null | awk '{print $2}' )
+    GetInstanceResult=$result
+  else
+    warning "Instance [$name] not found in project [$Project]"
+    ListInstancesByPattern ${name}
+    error "Instance not found"
+  fi
 fi
 GetInstanceResult=$result
 }
@@ -370,9 +394,6 @@ while [ -n "$1" ]; do
     ;;
   sp)
     SetProject $2
-    ;;
-  grep)
-    Grep $2
     ;;
   ? | -help | --help | -h | -H)
     ShowHelp
