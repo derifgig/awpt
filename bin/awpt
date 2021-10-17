@@ -211,7 +211,7 @@ GetInstance() {
   if [ -z "${name}" ]; then
     error "function: GetInstance, parameter is EMPTY"
   fi
-  local result=$(grep -w "^${name}" ${awsEC2list} 2>/dev/null | awk '{print $1}' | head -1)
+  local result=$(grep -w "${name}" ${awsEC2list} 2>/dev/null | awk '{print $1}' | head -1)
   if [ -z "$result" ]; then
     # attempt to find  one instance by pattern
     cc=$(grep -ci -- "${name}" ${awsEC2list} 2>/dev/null)
@@ -220,7 +220,6 @@ GetInstance() {
       local ec2_name=$(grep -i -- ${name} ${awsEC2list} 2>/dev/null | awk '{print $2}')
       log "Found instance: $ec2_name"
       result=$(grep ${ec2_name} ${awsEC2list} 2>/dev/null | awk '{print $1}')
-      GetInstanceResult=$result
     else
       warning "No one EC2 found by pattern \"$name\" in project: $Project"
       ListInstancesByPattern ${name}
@@ -262,7 +261,7 @@ COMMANDS:
   ls     : list EC2 instances
   {hostname}     : connect to host by SSM
   ssh {hostname} : connect to host by SSH via SSM Proxy
-
+  exec {host_list} {commnad} : execute ssh commnad by host_list
 EOF
   exit 0
 }
@@ -339,6 +338,7 @@ ConnectSSH() {
   #
   local ss="$HOME/.ssh/${Project}/${ssh_key_ec2}"
   if [ -f $ss ]; then
+    log "Connecting via SSH ..."
     ssh -i $ss ec2-user@${instance}
   else
     error "SSH key not found: $ss"
@@ -352,7 +352,40 @@ ConnectSSM() {
   GetInstance $1
   instance=$GetInstanceResult
   #
+  log "Connecting via SSH ..."
   aws ssm start-session --target ${instance}
+}
+#
+ExecDSH() {
+  local ec2_list
+  local ec2_name
+  local instance
+  local ssh_command
+  local ssh_key_ec2
+  local ss
+  if [[ -z "$1" || -z "$2" ]]; then
+    error "Needs two parameter"
+  fi
+  ec2_list=$1
+  ssh_command=$2
+  log "E2 list file: $ec2_list"
+  log "Number of hosts: $(grep -cv '^#\|^$' $ec2_list)"
+  log "Command: $ssh_command"
+  echo "---"
+  for ec2_name in $(grep -v '^#\|^$' $ec2_list); do
+      GetInstance $ec2_name
+      instance=$GetInstanceResult
+      #
+      GetSshKeyForInstance $instance
+      ssh_key_ec2=$GetSshKeyForInstance
+      #
+      ss="$HOME/.ssh/${Project}/${ssh_key_ec2}"
+      if [ -f "$ss" ]; then
+        ssh -i $ss ec2-user@${instance} $ssh_command| awk -v prefix=$ec2_name '{printf "%s: %s\n",prefix,$0}'
+      else
+        log "$ec2_name: Skipped. SSH key not found: $ss"
+      fi
+  done
 }
 #
 # === MAIN PROCESS ===========================
@@ -391,6 +424,10 @@ while [ -n "$1" ]; do
   ssh)
     ConnectSSH $2
     shift
+    ;;
+  exec)
+    ExecDSH $2 "$3"
+    shift 2
     ;;
   *)
     ConnectSSM $1
