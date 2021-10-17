@@ -74,10 +74,10 @@ Reading AWS EC2 instances. Please wait...
 EC2 count: 4 /home/dima/.config/awpt/project/myproject1/ec2.list
 
 $ awpt ls
-eu-myproject1-bastion-0 i-0aab60a8dce021bbf key1 10.104.30.212
-eu-myproject1-app-0 i-025e6f600820f689d key1 10.104.29.120
-eu-myproject1-app-0 i-0117ab998345cd102 key1 10.104.30.218
-eu-myproject1-rabbitmq-0 i-0cea0baa8652080a5 key1 10.104.34.123
+i-0aab60a8dce021bbf eu-myproject1-bastion-0 10.104.30.212 ssh_key 
+i-025e6f600820f689d eu-myproject1-app-0 10.104.29.120 ssh_key
+i-0117ab998345cd102 eu-myproject1-app-0 10.104.30.218 ssh_key
+i-0cea0baa8652080a5 eu-myproject1-rabbitmq-0 10.104.34.123 ssh_key
 
 $ awpt info
 AWPT version: 0.1beta
