@@ -191,41 +191,22 @@ ConfigGet() {
   ConfigGetResult=$(grep "^${param}" ${ProjectConfig} 2>/dev/null | awk -F= '{print $2}' | head -1)
 }
 #
-ListInstancesByPattern() {
-  local pattern=$1
-  if [ -z "${pattern}" ]; then
-    return
-  fi
-  #
-  if grep -q "${pattern}" ${awsEC2list} 2>/dev/null; then
-    echo -e "\nPerhaps you means:"
-    grep -i "${pattern}" ${awsEC2list} 2>/dev/null | awk '{print $2,$3}' | sort
-    echo ""
-  fi
-}
-#
 GetInstance() {
   GetCurrentProject
   SetProjectVars
-  local name=$1
-  if [ -z "${name}" ]; then
+  local pattern=$1
+  local ec2_id
+  local ec2_name
+  local result
+  if [ -z "${pattern}" ]; then
     error "function: GetInstance, parameter is EMPTY"
   fi
-  local result=$(awk '{print $1,$2}' ${awsEC2list} | grep -wi "${name}" 2>/dev/null | head -1)
+  result=$(awk '{print $1,$2}' ${awsEC2list} | grep -wi "${pattern}" 2>/dev/null | head -1)
   if [ -z "$result" ]; then
-    # attempt to find  one instance by pattern
-    cc=$(awk '{print $2}' ${awsEC2list} | grep -ci -- "${name}" 2>/dev/null)
-    # if founded only one host
-    if [ ${cc} -eq 1 ]; then
-      result=$(awk '{print $1,$2}' ${awsEC2list} | grep -i -- "${name}" 2>/dev/null)
-    else
-      warning "No one EC2 found by pattern \"$name\" in project: $Project"
-      ListInstancesByPattern ${name}
-      error "Instance not identified"
-    fi
+    error "No one EC2 found by pattern \"$pattern\" in project: $Project"
   fi
-  local ec2_id=$(echo $result | awk '{print $1}')
-  local ec2_name=$(echo $result | awk '{print $2}')
+  ec2_id=$(echo $result | awk '{print $1}')
+  ec2_name=$(echo $result | awk '{print $2}')
   GetInstanceResult=$ec2_id
   GetInstanceDescription=$ec2_name
 }
