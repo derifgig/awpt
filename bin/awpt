@@ -215,10 +215,11 @@ GetSshKeyForInstance() {
   GetCurrentProject
   SetProjectVars
   local ec2_id=$1
+  local result
   if [ -z "${ec2_id}" ]; then
     error "function: GetSshKeyForInstance, parameter is EMPTY"
   fi
-  local result=$(grep ^${ec2_id} ${awsEC2list} 2>/dev/null | awk '{print $4}' | head -1)
+  result=$(grep ^${ec2_id} ${awsEC2list} 2>/dev/null | awk '{print $4}' | head -1)
   if [ -z "$result" ]; then
     error "Ssh key for instance \"$ec2_id\" not found in project: $Project"
   fi
@@ -254,7 +255,7 @@ Sync() {
   SetProjectVars
   local jsonfile
   jsonfile=$(mktemp)
-  aws ec2 describe-instances --filter Name=tag-key,Values=Name --query 'Reservations[*].Instances[*].{InstanceId:InstanceId,PrivateIp:PrivateIpAddress,sshkey:KeyName,Name:Tags[?Key==`Name`]|[0].Value}' --output json >${jsonfile}
+  aws ec2 describe-instances --filter Name=tag-key,Values=Name --query 'Reservations[*].Instances[*].{InstanceId:InstanceId,PrivateIp:PrivateIpAddress,sshkey:KeyName,InstanceType:InstanceType,Name:Tags[?Key==`Name`]|[0].Value}' --output json >${jsonfile}
   # received error
   local exitcode="$?"
   if [ "${exitcode}" -ne "0" ]; then
@@ -264,7 +265,7 @@ Sync() {
     rm -f ${jsonfile}
   fi
   #
-  cat ${jsonfile} | jq -r '.[] | .[] | "\(.InstanceId) \(.Name) \(.PrivateIp) \(.sshkey)"' >${awsEC2list}
+  cat ${jsonfile} | jq -r '.[] | .[] | "\(.InstanceId) \(.Name) \(.PrivateIp) \(.sshkey) \(.InstanceType)"' >${awsEC2list}
   rm -f ${jsonfile}
   #
   log "EC2 count: $(wc -l ${awsEC2list})"
