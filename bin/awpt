@@ -259,16 +259,38 @@ Sync() {
   # received error
   local exitcode="$?"
   if [ "${exitcode}" -ne "0" ]; then
-    error "Exit code not zero: ${exitcode}"
-    echo "------ OUTPUT -----------"
+    warning "--- AWS CLI execution error. OUTPUT ---"
     cat ${jsonfile}
     rm -f ${jsonfile}
+    error "AWS CLI Error: ${exitcode}. Can not continue"
   fi
   #
   cat ${jsonfile} | jq -r '.[] | .[] | "\(.InstanceId) \(.Name) \(.PrivateIp) \(.sshkey) \(.InstanceType)"' >${awsEC2list}
   rm -f ${jsonfile}
   #
   log "EC2 count: $(wc -l ${awsEC2list})"
+  exit 0
+}
+#
+Show() {
+  log "Reading AWS EC2 instances. Please wait..."
+  GetCurrentProject
+  SetProjectVars
+  local jsonfile
+  jsonfile=$(mktemp)
+  aws ec2 describe-instances --filter Name=tag-key,Values=Name --query 'Reservations[*].Instances[*].{InstanceId:InstanceId,PrivateIp:PrivateIpAddress,sshkey:KeyName,InstanceType:InstanceType,Name:Tags[?Key==`Name`]|[0].Value},State:State[`Name`]' --output json >${jsonfile}
+  # received error
+  local exitcode="$?"
+  if [ "${exitcode}" -ne "0" ]; then
+    warning "--- AWS CLI execution error. OUTPUT ---"
+    cat ${jsonfile}
+    rm -f ${jsonfile}
+    error "AWS CLI Error: ${exitcode}. Can not continue"
+  fi
+  #
+  cat ${jsonfile} | jq -r '.[] | .[] | "\(.InstanceId) \(.Name) \(.PrivateIp) \(.State)"'
+  rm -f ${jsonfile}
+  #
   exit 0
 }
 #
