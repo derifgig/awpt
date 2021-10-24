@@ -279,7 +279,7 @@ Show() {
   SetProjectVars
   local jsonfile
   jsonfile=$(mktemp)
-  aws ec2 describe-instances --filter Name=tag-key,Values=Name --query 'Reservations[*].Instances[*].{InstanceId:InstanceId,PrivateIp:PrivateIpAddress,sshkey:KeyName,InstanceType:InstanceType,Name:Tags[?Key==`Name`]|[0].Value,State:State[`Name`]}' --output json >${jsonfile}
+  aws ec2 describe-instances --filter Name=tag-key,Values=Name --query 'Reservations[*].Instances[*].{InstanceId:InstanceId,PrivateIp:PrivateIpAddress,sshkey:KeyName,InstanceType:InstanceType,Name:Tags[?Key==`Name`]|[0].Value,State:State.Name}' --output json >${jsonfile}
   # received error
   local exitcode="$?"
   if [ "${exitcode}" -ne "0" ]; then
