@@ -241,6 +241,7 @@ COMMANDS:
   create : create new project
   lp     : list projects
   sync   : sync EC2 id and Names
+  show   : show current state of all EC2 instances
   ls     : list EC2 instances
   {hostname}     : connect to host by SSM
   ssh {hostname} : connect to host by SSH via SSM Proxy
@@ -412,6 +413,9 @@ while [ -n "$1" ]; do
   case "$1" in
   sync)
     Sync
+    ;;
+  show)
+    Show
     ;;
   ls)
     ListInstances
