@@ -211,22 +211,23 @@ GetInstance() {
   if [ -z "${name}" ]; then
     error "function: GetInstance, parameter is EMPTY"
   fi
-  local result=$(grep -w "${name}" ${awsEC2list} 2>/dev/null | awk '{print $1}' | head -1)
+  local result=$(awk '{print $1,$2}' ${awsEC2list} | grep -wi "${name}" 2>/dev/null | head -1)
   if [ -z "$result" ]; then
     # attempt to find  one instance by pattern
-    cc=$(grep -ci -- "${name}" ${awsEC2list} 2>/dev/null)
+    cc=$(awk '{print $2}' ${awsEC2list} | grep -ci -- "${name}" 2>/dev/null)
     # if founded only one host
     if [ ${cc} -eq 1 ]; then
-      local ec2_name=$(grep -i -- ${name} ${awsEC2list} 2>/dev/null | awk '{print $2}')
-      log "Found instance: $ec2_name"
-      result=$(grep ${ec2_name} ${awsEC2list} 2>/dev/null | awk '{print $1}')
+      result=$(awk '{print $1,$2}' ${awsEC2list} | grep -i -- "${name}" 2>/dev/null)
     else
       warning "No one EC2 found by pattern \"$name\" in project: $Project"
       ListInstancesByPattern ${name}
       error "Instance not identified"
     fi
   fi
-  GetInstanceResult=$result
+  local ec2_id=$(echo $result | awk '{print $1}')
+  local ec2_name=$(echo $result | awk '{print $2}')
+  GetInstanceResult=$ec2_id
+  GetInstanceDescription=$ec2_name
 }
 #
 GetSshKeyForInstance() {
@@ -326,20 +327,22 @@ Info() {
 }
 #
 ConnectSSH() {
-  local instance
+  local ec2_id
+  local ec2_name
   if [ -z "$1" ]; then
     error "No hostname as parameter. Check instance list: ${app} ls"
   fi
   GetInstance $1
-  instance=$GetInstanceResult
+  ec2_id=$GetInstanceResult
+  ec2_name=$GetInstanceDescription
   #
-  GetSshKeyForInstance $instance
+  GetSshKeyForInstance $ec2_id
   ssh_key_ec2=$GetSshKeyForInstance
   #
   local ss="$HOME/.ssh/${Project}/${ssh_key_ec2}"
   if [ -f $ss ]; then
-    log "Connecting via SSH ..."
-    ssh -i $ss ec2-user@${instance}
+    log "Connecting to $ec2_name via SSH ..."
+    ssh -i $ss ec2-user@${ec2_id}
   else
     error "SSH key not found: $ss"
   fi
@@ -352,7 +355,7 @@ ConnectSSM() {
   GetInstance $1
   instance=$GetInstanceResult
   #
-  log "Connecting via SSH ..."
+  log "Connecting via SSM ..."
   aws ssm start-session --target ${instance}
 }
 #
