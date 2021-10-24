@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-version="1.4"
+version="1.4.1"
 #
 Logger() {
   if [ -n "$Log" ]; then
@@ -201,7 +201,7 @@ GetInstance() {
   if [ -z "${pattern}" ]; then
     error "function: GetInstance, parameter is EMPTY"
   fi
-  result=$(awk '{print $1,$2}' ${awsEC2list} | grep -wi "${pattern}" 2>/dev/null | head -1)
+  result=$(awk '{print $1,$2}' ${awsEC2list} | grep -i "${pattern}" 2>/dev/null | head -1)
   if [ -z "$result" ]; then
     error "No one EC2 found by pattern \"$pattern\" in project: $Project"
   fi
