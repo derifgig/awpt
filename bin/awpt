@@ -349,14 +349,17 @@ ConnectSSH() {
 }
 #
 ConnectSSM() {
+  local ec2_id
+  local ec2_name
   if [ -z "$1" ]; then
     error "No hostname as parameter. Check instance list: ${app} ls"
   fi
   GetInstance $1
-  instance=$GetInstanceResult
+  ec2_id=$GetInstanceResult
+  ec2_name=$GetInstanceDescription
   #
-  log "Connecting via SSM ..."
-  aws ssm start-session --target ${instance}
+  log "Connecting to $ec2_name via SSM ..."
+  aws ssm start-session --target ${ec2_id}
 }
 #
 ExecDSH() {
