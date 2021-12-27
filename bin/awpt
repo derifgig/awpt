@@ -1,6 +1,7 @@
 #!/bin/bash
 #
-version="1.4.1"
+version="1.5"
+url="https://github.com/derifgig/awpt"
 #
 Logger() {
   if [ -n "$Log" ]; then
@@ -82,7 +83,6 @@ ListProjects() {
   exit 0
 }
 #
-#
 SetProject() {
   local param=$1
   if [ -z "$param" ]; then
@@ -110,6 +110,34 @@ GetCurrentProject() {
     fi
     Project=$pp
   fi
+}
+#
+GetLogin() {
+  local ec2_name=$1
+  local pattern
+  local line
+  local login
+  if [ -z "$ec2_name" ]; then
+    error "GetLogin failed: no parameter value"
+  fi
+  if [ -z "${ProjectLoginPatterns}" ]; then
+    error "No value of var ProjectLoginPatterns"
+  fi
+  if [ ! -f ${ProjectLoginPatterns} ]; then
+    error "File does not exists: ${ProjectLoginPatterns}"
+  fi
+  pIFS=$IFS
+  IFS=$'\n'
+  for line in $( grep -v '^#\|^$' ${ProjectLoginPatterns}  ); do
+    pattern=$(echo $line | awk -F '==' '{print $1}' )
+    login=$(echo $line | awk -F '==' '{print $2}' | awk '{print $1}' )
+    if echo $ec2_name | grep -q $pattern ; then
+      GetLoginResult=$login
+      IFS=$pIFS
+      return
+    fi
+  done
+  IFS=$pIFS
 }
 #
 CheckProjectVar() {
@@ -143,6 +171,7 @@ SetProjectVars() {
   Log="${Project}"
   ProjectPath="${ProjectsDir}/${Project}"
   ProjectConfig="${ProjectPath}/config"
+  ProjectLoginPatterns="${ProjectPath}/login-patterns"
   #
   if [ ! -d ${ProjectPath} ]; then
     CreateDir ${ProjectPath}
@@ -157,6 +186,8 @@ SetProjectVars() {
 #
 CreateProject() {
   local project="$1"
+  local file_config="config"
+  local file_login_patterns="users-pattern"
   if [ -z "$project" ]; then
     error "NO parameters in func: CreateProject"
   fi
@@ -166,9 +197,14 @@ CreateProject() {
     echo "Create new project: ${project}"
     CreateDir $pp
     if [ -d $pp ]; then
-      echo "aws_profile=${project}" >$pp/config
-      echo "# ssh keys should be placed in ~/.ssh directory" >>$pp/config
-      echo "default_ssh_key=${project}/default.key" >>$pp/config
+      # config
+      echo "aws_profile=${project}" >$pp/${file-config}
+      # exampleusers-pattern
+      echo -e "# pattern (regexp) for grep command, delimiter is '=='\n# first match rule will be in use" >$pp/${file_login_patterns}
+      echo "#^.*(debian).*$==admin" >> $pp/${file_login_patterns}
+      echo "#^.*(ubuntu).*$==ubuntu" >> $pp/${file_login_patterns}
+      echo "#ubuntu==ubuntu" >> $pp/${file_login_patterns}
+      echo "^.*$==ec2-user" >>$pp/${file_login_patterns}
       #
       if [ -d $HOME/.ssh/${project} ]; then
         echo "Directory for ssh keys already exists: $HOME/.ssh/${project}"
@@ -312,21 +348,22 @@ ListInstances() {
 }
 #
 Info() {
-  echo "${app^^} version: $version"
+  echo "${app^^} version: $version $url"
   GetCurrentProject
   SetProjectVars
   if [ -z $Project ]; then
     error "Current project: not selected"
   else
-    echo "Current Project: $Project"
-    echo -e "Config file: $ProjectConfig\n-----------"
+    echo -e "\nCurrent Project: $Project"
+    echo -e "\nConfig file: $ProjectConfig\n-----------"
     cat $ProjectConfig | grep -v ^#
-    echo "-----------"
+    echo -e "\nLogin patterns file: $ProjectLoginPatterns\n-----------"
+    cat $ProjectLoginPatterns | grep -v ^#
     if [ -f ${awsEC2list} ]; then
       local ll=$(wc -l ${awsEC2list} | awk '{print $1}')
-      echo "EC2 count: $ll"
+      echo -e "\nEC2 count: $ll"
     else
-      warning "EC2 list file (${awsEC2list}) does not exists. Run command: awpt sync"
+      warning "EC2 list file (${awsEC2list}) does not exists. Run command: ${app} sync"
     fi
   fi
 }
@@ -345,9 +382,17 @@ ConnectSSH() {
   ssh_key_ec2=$GetSshKeyForInstance
   #
   local ss="$HOME/.ssh/${Project}/${ssh_key_ec2}"
+  #
+  GetLogin $ec2_name
+  local ec2_login=$GetLoginResult
+  #
+  if [ -z "$ec2_name" ]; then
+    error "Login for Instance not found!"
+  fi
+  #
   if [ -f $ss ]; then
-    log "Connecting to $ec2_name via SSH ..."
-    ssh -i $ss ec2-user@${ec2_id}
+    log "Connecting $ec2_login@$ec2_name via SSH ..."
+    ssh -i $ss ${ec2_login}@${ec2_id}
   else
     error "SSH key not found: $ss"
   fi
@@ -391,10 +436,18 @@ ExecDSH() {
       ssh_key_ec2=$GetSshKeyForInstance
       #
       ss="$HOME/.ssh/${Project}/${ssh_key_ec2}"
-      if [ -f "$ss" ]; then
-        ssh -i $ss ec2-user@${instance} $ssh_command| awk -v prefix=$ec2_name '{printf "%s: %s\n",prefix,$0}'
+      #
+      GetLogin $ec2_name
+      local ec2_login=$GetLoginResult
+      #
+      if [ -z "$ec2_login" ]; then
+        if [ -f "$ss" ]; then
+          ssh -i $ss ${ec2_login}@${instance} $ssh_command| awk -v prefix=$ec2_name '{printf "%s: %s\n",prefix,$0}'
+        else
+          log "$ec2_name: Skipped. SSH key not found: $ss"
+        fi
       else
-        log "$ec2_name: Skipped. SSH key not found: $ss"
+        log "$ec2_name: Skipped. Login not found"
       fi
   done
 }
