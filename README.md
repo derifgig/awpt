@@ -1,13 +1,14 @@
 # AWPT
 Tool for AWS EC2 connect, via SSM 
-# Supported client OS
-Linux: Ubuntu, ArchLinux/Manjaro
+# Tested on client OS
+Linux: Debian, Ubuntu, ArchLinux
 
 Windows: not tested
- 
+
 MacOS: not tested
 # Supported EC2
-BETA 1 - Amazon Linux 1,2: by system account ec2-user 
+v.1.5 Added support any login
+
 # Requirements
 ### AWS
 Allow SSM connection 
@@ -80,13 +81,21 @@ i-0117ab998345cd102 eu-myproject1-app-0 10.104.30.218 ssh_key
 i-0cea0baa8652080a5 eu-myproject1-rabbitmq-0 10.104.34.123 ssh_key
 
 $ awpt info
-AWPT version: 0.1beta
+AWPT version: 1.5 https://github.com/derifgig/awpt
+
 Current Project: myproject1
+
 Config file: /home/dima/.config/awpt/project/myproject1/config
----------
-aws_profile=myproject1
 -----------
-EC2 count: 4
+aws_profile=sgc-us-east
+
+Login patterns file: /home/dima/.config/awpt/project/myproject1/login-patterns
+-----------
+^.*(ubuntu).*$==ubuntu
+^.*(debian).*$==admin
+^.*$==ec2-user
+
+EC2 count: 18
 
 # connect by SSM
 $ awpt eu-myproject1-bastion-0
@@ -102,6 +111,9 @@ $HOME/.config/awpt/
 
 # project config
 $HOME/.config/awpt/{project}/config
+
+# project login patterns
+$HOME/.config/awpt/{project}/login-patterns
 
 # SSH keys for project
 $HOME/.ssh/myproject1
