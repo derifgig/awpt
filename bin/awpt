@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-version="1.4.1"
+version="1.4.3"
 #
 Logger() {
   if [ -n "$Log" ]; then
@@ -82,7 +82,6 @@ ListProjects() {
   exit 0
 }
 #
-#
 SetProject() {
   local param=$1
   if [ -z "$param" ]; then
@@ -110,6 +109,35 @@ GetCurrentProject() {
     fi
     Project=$pp
   fi
+}
+#
+GetLogin() {
+  local ec2_name=$1
+  if [ -z "$ec2_name" ]; then
+    error "GetLogin failed: no parameter value"
+  fi
+  if [ -z "${ProjectLoginPatterns}" ]; then
+    error "No value of var ProjectLoginPatterns"
+  fi
+  if [ ! -f ${ProjectLoginPatterns} ]; then
+    error "File does not exists: ${ProjectLoginPatterns}"
+  fi
+  pIFS=$IFS
+  IFS=$'\n'
+  for pattern in $( grep -v '^#\|^$' ${ProjectLoginPatterns} | awk '{print $1}' ); do
+    # remove first and last quotas at
+    pattern=$(echo $pattern | sed -e 's|^.|| ; s|.$||' )
+    #
+    echo 'Pattern:' $pattern $ec2_name :
+    if test $(echo $ec2_name | grep $pattern ) ;then
+      echo "Match: $ec2_name -- $pattern"
+    else
+      echo "no match"
+    fi
+  done
+  IFS=$pIFS
+  #
+  GetLoginResult='test_result'
 }
 #
 CheckProjectVar() {
@@ -143,6 +171,7 @@ SetProjectVars() {
   Log="${Project}"
   ProjectPath="${ProjectsDir}/${Project}"
   ProjectConfig="${ProjectPath}/config"
+  ProjectLoginPatterns="${ProjectPath}/login-patterns"
   #
   if [ ! -d ${ProjectPath} ]; then
     CreateDir ${ProjectPath}
@@ -157,6 +186,8 @@ SetProjectVars() {
 #
 CreateProject() {
   local project="$1"
+  local file_config="config"
+  local file_login_patterns="users-pattern"
   if [ -z "$project" ]; then
     error "NO parameters in func: CreateProject"
   fi
@@ -166,9 +197,13 @@ CreateProject() {
     echo "Create new project: ${project}"
     CreateDir $pp
     if [ -d $pp ]; then
-      echo "aws_profile=${project}" >$pp/config
-      echo "# ssh keys should be placed in ~/.ssh directory" >>$pp/config
-      echo "default_ssh_key=${project}/default.key" >>$pp/config
+      # config
+      echo "aws_profile=${project}" >$pp/${file-config}
+      # exampleusers-pattern
+      echo -e "# regexp pattern for grep command\n# first match rule will be in use" >$pp/${file_login_patterns}
+      echo "\"^.*(debian).*$\" admin # example" >> $pp/${file_login_patterns}
+      echo "\"^.*(ubuntu).*$\" ubuntu # example" >> $pp/${file_login_patterns}
+      echo "\"^.*$\" ec2-user" >>$pp/${file_login_patterns}
       #
       if [ -d $HOME/.ssh/${project} ]; then
         echo "Directory for ssh keys already exists: $HOME/.ssh/${project}"
@@ -345,9 +380,17 @@ ConnectSSH() {
   ssh_key_ec2=$GetSshKeyForInstance
   #
   local ss="$HOME/.ssh/${Project}/${ssh_key_ec2}"
+  #
+  GetLogin $ec2_name
+  local ec2_login=$GetLoginResult
+  #
+  if [ -z "$ec2_name" ]; then
+    error "Login for Instance not found!"
+  fi
+  #
   if [ -f $ss ]; then
-    log "Connecting to $ec2_name via SSH ..."
-    ssh -i $ss ec2-user@${ec2_id}
+    log "Connecting as $ec2_login to @$ec2_name via SSH ..."
+    #ssh -i $ss ${ec2_login}@${ec2_id}
   else
     error "SSH key not found: $ss"
   fi
