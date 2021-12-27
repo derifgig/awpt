@@ -1,6 +1,7 @@
 #!/bin/bash
 #
-version="1.4.3"
+version="1.5"
+url="https://github.com/derifgig/awpt"
 #
 Logger() {
   if [ -n "$Log" ]; then
@@ -113,6 +114,9 @@ GetCurrentProject() {
 #
 GetLogin() {
   local ec2_name=$1
+  local pattern
+  local line
+  local login
   if [ -z "$ec2_name" ]; then
     error "GetLogin failed: no parameter value"
   fi
@@ -124,20 +128,16 @@ GetLogin() {
   fi
   pIFS=$IFS
   IFS=$'\n'
-  for pattern in $( grep -v '^#\|^$' ${ProjectLoginPatterns} | awk '{print $1}' ); do
-    # remove first and last quotas at
-    pattern=$(echo $pattern | sed -e 's|^.|| ; s|.$||' )
-    #
-    echo 'Pattern:' $pattern $ec2_name :
-    if test $(echo $ec2_name | grep $pattern ) ;then
-      echo "Match: $ec2_name -- $pattern"
-    else
-      echo "no match"
+  for line in $( grep -v '^#\|^$' ${ProjectLoginPatterns}  ); do
+    pattern=$(echo $line | awk -F '==' '{print $1}' )
+    login=$(echo $line | awk -F '==' '{print $2}' | awk '{print $1}' )
+    if echo $ec2_name | grep -q $pattern ; then
+      GetLoginResult=$login
+      IFS=$pIFS
+      return
     fi
   done
   IFS=$pIFS
-  #
-  GetLoginResult='test_result'
 }
 #
 CheckProjectVar() {
@@ -200,10 +200,11 @@ CreateProject() {
       # config
       echo "aws_profile=${project}" >$pp/${file-config}
       # exampleusers-pattern
-      echo -e "# regexp pattern for grep command\n# first match rule will be in use" >$pp/${file_login_patterns}
-      echo "\"^.*(debian).*$\" admin # example" >> $pp/${file_login_patterns}
-      echo "\"^.*(ubuntu).*$\" ubuntu # example" >> $pp/${file_login_patterns}
-      echo "\"^.*$\" ec2-user" >>$pp/${file_login_patterns}
+      echo -e "# pattern (regexp) for grep command, delimiter is '=='\n# first match rule will be in use" >$pp/${file_login_patterns}
+      echo "#^.*(debian).*$==admin" >> $pp/${file_login_patterns}
+      echo "#^.*(ubuntu).*$==ubuntu" >> $pp/${file_login_patterns}
+      echo "#ubuntu==ubuntu" >> $pp/${file_login_patterns}
+      echo "^.*$==ec2-user" >>$pp/${file_login_patterns}
       #
       if [ -d $HOME/.ssh/${project} ]; then
         echo "Directory for ssh keys already exists: $HOME/.ssh/${project}"
@@ -347,21 +348,22 @@ ListInstances() {
 }
 #
 Info() {
-  echo "${app^^} version: $version"
+  echo "${app^^} version: $version $url"
   GetCurrentProject
   SetProjectVars
   if [ -z $Project ]; then
     error "Current project: not selected"
   else
-    echo "Current Project: $Project"
-    echo -e "Config file: $ProjectConfig\n-----------"
+    echo -e "\nCurrent Project: $Project"
+    echo -e "\nConfig file: $ProjectConfig\n-----------"
     cat $ProjectConfig | grep -v ^#
-    echo "-----------"
+    echo -e "\nLogin patterns file: $ProjectLoginPatterns\n-----------"
+    cat $ProjectLoginPatterns | grep -v ^#
     if [ -f ${awsEC2list} ]; then
       local ll=$(wc -l ${awsEC2list} | awk '{print $1}')
-      echo "EC2 count: $ll"
+      echo -e "\nEC2 count: $ll"
     else
-      warning "EC2 list file (${awsEC2list}) does not exists. Run command: awpt sync"
+      warning "EC2 list file (${awsEC2list}) does not exists. Run command: ${app} sync"
     fi
   fi
 }
@@ -389,8 +391,8 @@ ConnectSSH() {
   fi
   #
   if [ -f $ss ]; then
-    log "Connecting as $ec2_login to @$ec2_name via SSH ..."
-    #ssh -i $ss ${ec2_login}@${ec2_id}
+    log "Connecting $ec2_login@$ec2_name via SSH ..."
+    ssh -i $ss ${ec2_login}@${ec2_id}
   else
     error "SSH key not found: $ss"
   fi
@@ -434,10 +436,18 @@ ExecDSH() {
       ssh_key_ec2=$GetSshKeyForInstance
       #
       ss="$HOME/.ssh/${Project}/${ssh_key_ec2}"
-      if [ -f "$ss" ]; then
-        ssh -i $ss ec2-user@${instance} $ssh_command| awk -v prefix=$ec2_name '{printf "%s: %s\n",prefix,$0}'
+      #
+      GetLogin $ec2_name
+      local ec2_login=$GetLoginResult
+      #
+      if [ -z "$ec2_login" ]; then
+        if [ -f "$ss" ]; then
+          ssh -i $ss ${ec2_login}@${instance} $ssh_command| awk -v prefix=$ec2_name '{printf "%s: %s\n",prefix,$0}'
+        else
+          log "$ec2_name: Skipped. SSH key not found: $ss"
+        fi
       else
-        log "$ec2_name: Skipped. SSH key not found: $ss"
+        log "$ec2_name: Skipped. Login not found"
       fi
   done
 }
