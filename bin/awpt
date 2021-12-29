@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-version="1.5"
+version="1.5.1"
 url="https://github.com/derifgig/awpt"
 #
 Logger() {
@@ -440,7 +440,7 @@ ExecDSH() {
       GetLogin $ec2_name
       local ec2_login=$GetLoginResult
       #
-      if [ -z "$ec2_login" ]; then
+      if [ -n "$ec2_login" ]; then
         if [ -f "$ss" ]; then
           ssh -i $ss ${ec2_login}@${instance} $ssh_command| awk -v prefix=$ec2_name '{printf "%s: %s\n",prefix,$0}'
         else
