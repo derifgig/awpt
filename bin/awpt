@@ -5,43 +5,43 @@ url="https://github.com/derifgig/awpt"
 #
 Logger() {
   if [ -n "$Log" ]; then
-    logger -p $logger_priority "${app}:$Project pid:$PID $@"
+    logger -p "$logger_priority" "${app}:$Project pid:$PID $*"
   fi
 }
 #
 log() {
-  echo $@
+  echo "$@"
   logger_priority='user.info'
-  Logger $@
+  Logger "$@"
 }
 #
 warning() {
-  echo WARNING $@
+  echo "WARNING $*"
   logger_priority='user.warning'
-  Logger $@
+  Logger "$@"
 }
 #
 error() {
-  echo ERROR $@
+  echo "ERROR $*"
   logger_priority='user.err'
-  Logger $@
+  Logger "$@"
   exit 1
 }
 #
 rmfile() {
-  if [ -f $1 ]; then
-    log "Remove file:" $(ls -s -h $1)
-    rm -f $1
+  if [ -f "$1" ]; then
+    log "Remove file:" "$(ls -s -h "$1")"
+    rm -f "$1"
   else
-    warning "Removing failed. File not exist: " $1
+    warning "Removing failed. File not exist: $1"
   fi
 }
 #
 showfile() {
-  if [ -f $1 ]; then
-    log "File :" $(ls -s -h $1)
+  if [ -f "$1" ]; then
+    log "File :" "$(ls -s -h "$1")"
   else
-    warning "File not exist: " $1
+    warning "File not exist: $1"
   fi
 }
 #
@@ -51,9 +51,9 @@ CreateDir() {
     error "NO parameters  in func: CreateDir"
   fi
   #
-  if [ ! -d $dd ]; then
+  if [ ! -d "$dd" ]; then
     log "Create directory: $dd"
-    mkdir -p $dd
+    mkdir -p "$dd"
   fi
 }
 #
@@ -61,7 +61,7 @@ ListProjects() {
   declare -A projects
   echo Projects directory: $ProjectsDir
   #
-  list=$(find $ProjectsDir -mindepth 1 -maxdepth 1 -type d)
+  list=$(find "$ProjectsDir" -mindepth 1 -maxdepth 1 -type d)
   #
   local cc=0
   local pp
@@ -72,7 +72,6 @@ ListProjects() {
   #
   if [ $cc -eq 0 ]; then
     error "No one projects exists"
-    exit 1
   fi
   #
   echo -e "Available projects: \n--------------"
@@ -104,7 +103,7 @@ GetCurrentProject() {
     return 1
   else
     local pp=$(cat ${CurrentProjectFile} 2>/dev/null)
-    if [ -z $pp ]; then
+    if [ -z "$pp" ]; then
       error "No value in current project file: ${CurrentProjectFile}"
       return 1
     fi
@@ -131,7 +130,7 @@ GetLogin() {
   for line in $( grep -v '^#\|^$' ${ProjectLoginPatterns}  ); do
     pattern=$(echo $line | awk -F '==' '{print $1}' )
     login=$(echo $line | awk -F '==' '{print $2}' | awk '{print $1}' )
-    if echo $ec2_name | grep -q $pattern ; then
+    if echo "$ec2_name" | grep -q "$pattern" ; then
       GetLoginResult=$login
       IFS=$pIFS
       return
@@ -173,8 +172,8 @@ SetProjectVars() {
   ProjectConfig="${ProjectPath}/config"
   ProjectLoginPatterns="${ProjectPath}/login-patterns"
   #
-  if [ ! -d ${ProjectPath} ]; then
-    CreateDir ${ProjectPath}
+  if [ ! -d "${ProjectPath}" ]; then
+    CreateDir "${ProjectPath}"
   fi
   #
   # AWS vars
@@ -193,20 +192,20 @@ CreateProject() {
   fi
   #
   pp="${ProjectsDir}/${project}"
-  if [ ! -d $pp ]; then
+  if [ ! -d "$pp" ]; then
     echo "Create new project: ${project}"
-    CreateDir $pp
-    if [ -d $pp ]; then
+    CreateDir "$pp"
+    if [ -d "$pp" ]; then
       # config
-      echo "aws_profile=${project}" >$pp/${file-config}
+      echo "aws_profile=${project}" >"$pp/${file_config}"
       # exampleusers-pattern
-      echo -e "# pattern (regexp) for grep command, delimiter is '=='\n# first match rule will be in use" >$pp/${file_login_patterns}
-      echo "#^.*(debian).*$==admin" >> $pp/${file_login_patterns}
-      echo "#^.*(ubuntu).*$==ubuntu" >> $pp/${file_login_patterns}
-      echo "#ubuntu==ubuntu" >> $pp/${file_login_patterns}
-      echo "^.*$==ec2-user" >>$pp/${file_login_patterns}
+      echo -e "# pattern (regexp) for grep command, delimiter is '=='\n# first match rule will be in use" >"$pp/${file_login_patterns}"
+      echo "#^.*(debian).*$==admin" >> "$pp/${file_login_patterns}"
+      echo "#^.*(ubuntu).*$==ubuntu" >> "$pp/${file_login_patterns}"
+      echo "#ubuntu==ubuntu" >> "$pp/${file_login_patterns}"
+      echo "^.*$==ec2-user" >>"$pp/${file_login_patterns}"
       #
-      if [ -d $HOME/.ssh/${project} ]; then
+      if [ -d "$HOME/.ssh/${project}" ]; then
         echo "Directory for ssh keys already exists: $HOME/.ssh/${project}"
       else
         CreateDir "$HOME/.ssh/${project}"
@@ -255,11 +254,11 @@ GetSshKeyForInstance() {
   if [ -z "${ec2_id}" ]; then
     error "function: GetSshKeyForInstance, parameter is EMPTY"
   fi
-  result=$(grep ^${ec2_id} ${awsEC2list} 2>/dev/null | awk '{print $4}' | head -1)
+  result=$(grep "^${ec2_id}" "${awsEC2list}" 2>/dev/null | awk '{print $4}' | head -1)
   if [ -z "$result" ]; then
     error "Ssh key for instance \"$ec2_id\" not found in project: $Project"
   fi
-  GetSshKeyForInstance=$result
+  GetSshKeyForInstanceResult=$result
 }
 #
 ShowHelp() {
@@ -351,16 +350,16 @@ Info() {
   echo "${app^^} version: $version $url"
   GetCurrentProject
   SetProjectVars
-  if [ -z $Project ]; then
+  if [ -z "$Project" ]; then
     error "Current project: not selected"
   else
     echo -e "\nCurrent Project: $Project"
     echo -e "\nConfig file: $ProjectConfig\n-----------"
-    cat $ProjectConfig | grep -v ^#
+    grep -v '^#' "$ProjectConfig"
     echo -e "\nLogin patterns file: $ProjectLoginPatterns\n-----------"
-    cat $ProjectLoginPatterns | grep -v ^#
-    if [ -f ${awsEC2list} ]; then
-      local ll=$(wc -l ${awsEC2list} | awk '{print $1}')
+    grep -v '^#' "$ProjectLoginPatterns"
+    if [ -f "${awsEC2list}" ]; then
+      local ll=$(wc -l "${awsEC2list}" | awk '{print $1}')
       echo -e "\nEC2 count: $ll"
     else
       warning "EC2 list file (${awsEC2list}) does not exists. Run command: ${app} sync"
@@ -379,20 +378,20 @@ ConnectSSH() {
   ec2_name=$GetInstanceDescription
   #
   GetSshKeyForInstance $ec2_id
-  ssh_key_ec2=$GetSshKeyForInstance
+  ssh_key_ec2=$GetSshKeyForInstanceResult
   #
   local ss="$HOME/.ssh/${Project}/${ssh_key_ec2}"
   #
   GetLogin $ec2_name
   local ec2_login=$GetLoginResult
   #
-  if [ -z "$ec2_name" ]; then
+  if [ -z "$ec2_login" ]; then
     error "Login for Instance not found!"
   fi
   #
-  if [ -f $ss ]; then
+  if [ -f "$ss" ]; then
     log "Connecting $ec2_login@$ec2_name via SSH ..."
-    ssh -i $ss ${ec2_login}@${ec2_id}
+    ssh -i "$ss" "${ec2_login}@${ec2_id}"
   else
     error "SSH key not found: $ss"
   fi
@@ -425,7 +424,7 @@ ExecDSH() {
   ec2_list=$1
   ssh_command=$2
   log "E2 list file: $ec2_list"
-  log "Number of hosts: $(grep -cv '^#\|^$' $ec2_list)"
+  log "Number of hosts: $(grep -cv '^#\|^$' "$ec2_list")"
   log "Command: $ssh_command"
   echo "---"
   for ec2_name in $(grep -v '^#\|^$' $ec2_list); do
@@ -433,7 +432,7 @@ ExecDSH() {
       instance=$GetInstanceResult
       #
       GetSshKeyForInstance $instance
-      ssh_key_ec2=$GetSshKeyForInstance
+      ssh_key_ec2=$GetSshKeyForInstanceResult
       #
       ss="$HOME/.ssh/${Project}/${ssh_key_ec2}"
       #
@@ -442,7 +441,7 @@ ExecDSH() {
       #
       if [ -n "$ec2_login" ]; then
         if [ -f "$ss" ]; then
-          ssh -i $ss ${ec2_login}@${instance} $ssh_command| awk -v prefix=$ec2_name '{printf "%s: %s\n",prefix,$0}'
+          ssh -i "$ss" "${ec2_login}@${instance}" "$ssh_command" | awk -v prefix="$ec2_name" '{printf "%s: %s\n",prefix,$0}'
         else
           log "$ec2_name: Skipped. SSH key not found: $ss"
         fi
